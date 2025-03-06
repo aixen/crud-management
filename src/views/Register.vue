@@ -21,8 +21,8 @@ export default {
     const password = ref('');
     const router = useRouter();
     const register = async () => {
-      await authStore.register({ name: name.value, email: email.value, password: password.value });
-      router.push('/login');
+        await authStore.register({ name: name.value, email: email.value, password: password.value });
+        router.push('/login');
     };
     return { name, email, password, register };
   }
