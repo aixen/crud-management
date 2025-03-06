@@ -1,17 +1,17 @@
 <template>
-    <!-- <div class='container'>
-        <h2>Profile</h2>
-        <p>Name: {{ auth.user?.name }}</p>
-        <p>Email: {{ auth.user?.email }}</p>
-        <button @click='logout'>Logout</button>
-    </div> -->
     <div class="dashboard">
         <!-- Header -->
         <header class="d-flex justify-content-between align-items-center p-3 bg-dark text-white">
             <h4 class="m-0">Dashboard</h4>
             <div class="text-end">
                 <span class="mx-3 px-2"> Welcome: {{ auth.user?.name }}</span>
-                <button class="btn btn-danger" @click="logout">Logout</button>
+                <button
+                    :disabled="auth.isLoading"
+                    @click="logout"
+                    class="btn btn-danger"
+                >
+                    {{ auth.isLoading ? 'Please wait...' : 'Logout' }}
+                </button>
             </div>
         </header>
 

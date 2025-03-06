@@ -7,19 +7,21 @@ export const useAuthStore = defineStore('auth', {
         // token: localStorage.getItem('token') || null,
         token: null,
         isLoading: false,
+        validationMessage: null,
     }),
 
     actions: {
         async login(credentials) {
             this.isLoading = true;
+            this.validationMessage = null;
             try {
-                const { data } = await api.post('/api/user/login', credentials);
+                const { data, status } = await api.post('/api/user/login', credentials);
                 this.user = data.user;
                 this.token = data.token;
 
                 api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-
             } catch (error) {
+                this.validationMessage = error.response.data.message;
                 console.error('Error on login:', error);
             } finally {
                 this.isLoading = false;
