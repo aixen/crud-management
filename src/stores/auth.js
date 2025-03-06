@@ -4,8 +4,7 @@ import api from '@/api';
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         user: null,
-        // token: localStorage.getItem('token') || null,
-        token: null,
+        token: localStorage.getItem('token') || null,
         isLoading: false,
         validationMessage: null,
     }),
@@ -17,7 +16,7 @@ export const useAuthStore = defineStore('auth', {
             try {
                 const { data, status } = await api.post('/api/user/login', credentials);
                 this.user = data.user;
-                this.token = data.token;
+                this.setToken(data.token, data.expiresIn);
 
                 api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
             } catch (error) {
@@ -53,6 +52,17 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
+        async refreshToken() {
+            try {
+                const { data } = await api.post('/api/user/refresh');
+                this.setToken(data.token, data.expires_in);
+                console.log('Token refreshed');
+            } catch (error) {
+                console.error('Error refreshing token:', error);
+                this.logout();
+            }
+        },
+
         async logout(router) {
             this.isLoading = true;
             try {
@@ -60,15 +70,38 @@ export const useAuthStore = defineStore('auth', {
             } catch (error) {
                 console.error('Error during logout:', error);
             } finally {
-                this.token = null;
-                this.user = null;
-                localStorage.removeItem('token');
-                delete api.defaults.headers.common['Authorization'];
-                this.isLoading = false;
+                this.clearToken();
 
                 if (router) {
                     router.push('/login');
                 }
+            }
+        },
+
+        setToken(token, expiresIn) {
+            this.token = token;
+            localStorage.setItem('token', token);
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+            }
+
+            // Set interval to refresh the token before expiration (e.g., 5 minutes before)
+            this.refreshInterval = setInterval(() => {
+                this.refreshToken();
+            }, (expiresIn - 300) * 1000); // Refresh 5 minutes before expiry
+        },
+
+        clearToken() {
+            this.token = null;
+            this.user = null;
+            localStorage.removeItem('token');
+            delete api.defaults.headers.common['Authorization'];
+
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+                this.refreshInterval = null;
             }
         },
 
