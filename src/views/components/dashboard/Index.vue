@@ -64,7 +64,7 @@ onMounted(() => {
 
 const logout = () => {
     try {
-        auth.logout(router);
+        auth.logout(router, { email: auth.user.email });
     } catch (error) {
         console.error('Error during logout:', error);
     }
