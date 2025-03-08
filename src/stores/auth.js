@@ -42,7 +42,7 @@ export const useAuthStore = defineStore('auth', {
         async register(userData) {
             this.isLoading = true;
             try {
-                await api.post('/api/user/register', userData);
+                await api.post(`${ROUTE_PREFIX}/register`, userData);
             } catch (error) {
                 console.error('Error during registration:', error);
             } finally {
@@ -64,9 +64,15 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
-        async refreshToken() {
+        async refreshToken(email) {
             try {
-                const { data } = await api.post('/api/user/refresh');
+                const hashedBody = this.hashRequestBody({ email });
+                const { data } = await api.post(`${ROUTE_PREFIX}/refresh`, { email }, {
+                    headers: {
+                        'X-API-KEY': API_KEY,
+                        'X-SIGNATURE': hashedBody
+                    }
+                });
                 this.setToken(data.token, data.expires_in);
                 console.log('Token refreshed');
             } catch (error) {
@@ -101,14 +107,14 @@ export const useAuthStore = defineStore('auth', {
             localStorage.setItem('token', token);
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-            // if (this.refreshInterval) {
-            //     clearInterval(this.refreshInterval);
-            // }
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+            }
 
-            // // Set interval to refresh the token before expiration (e.g., 5 minutes before)
-            // this.refreshInterval = setInterval(() => {
-            //     this.refreshToken();
-            // }, (expiresIn - 300) * 1000); // Refresh 5 minutes before expiry
+            // Set interval to refresh the token before expiration (e.g., 5 minutes before)
+            this.refreshInterval = setInterval(() => {
+                this.refreshToken({ email: this.user.email });
+            }, (expiresIn - 300) * 1000); // Refresh 5 minutes before expiry
         },
 
         clearToken() {
