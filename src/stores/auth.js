@@ -9,31 +9,26 @@ const ROUTE_PREFIX = import.meta.env.VITE_ROUTE_PREFIX;
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         user: null,
-        token: localStorage.getItem('token') || null,
+        token: localStorage.token ?? null,
         isLoading: false,
         validationMessage: null,
+        refreshInterval: 0,
     }),
 
     actions: {
         async login(credentials) {
             this.isLoading = true;
-            this.validationMessage = null;
             const hashedBody = this.hashRequestBody(credentials);
             try {
                 const { data } = await api.post(`${ROUTE_PREFIX}/login`, credentials, {
                     headers: {
-                        'X-API-KEY': API_KEY,
                         'X-SIGNATURE': hashedBody
                     }
                 });
                 this.user = data.user;
-                this.setToken(data.token, data.expiresIn);
-
-                console.log(data);
-                api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+                this.setToken(data.token, data.expires_in);
             } catch (error) {
-                this.validationMessage = error.response.data.message;
-                console.error('Error on login:', error);
+                this.validationMessage = error?.response?.data?.message;
             } finally {
                 this.isLoading = false;
             }
@@ -41,21 +36,28 @@ export const useAuthStore = defineStore('auth', {
 
         async register(userData) {
             this.isLoading = true;
+            const hashedBody = this.hashRequestBody(userData);
             try {
-                await api.post(`${ROUTE_PREFIX}/register`, userData);
+                const response = await api.post(`${ROUTE_PREFIX}/register`, userData, {
+                    headers: {
+                        'X-SIGNATURE': hashedBody
+                    }
+                });
+                this.user = response.data.user;
+                this.setToken(response.data.token, response.data.expires_in);
             } catch (error) {
-                console.error('Error during registration:', error);
+                this.validationMessage = error?.response?.data?.message || 'Registration failed';
             } finally {
                 this.isLoading = false;
             }
         },
 
         async getProfile() {
-            if (this.user) return;
+            if (this.user) return Promise.resolve();
 
             this.isLoading = true;
             try {
-                const { data } = await api.get('/api/user/profile');
+                const { data } = await api.get(`${ROUTE_PREFIX}/profile`);
                 this.user = data;
             } catch (error) {
                 console.error('Error fetching profile:', error);
@@ -66,15 +68,8 @@ export const useAuthStore = defineStore('auth', {
 
         async refreshToken(email) {
             try {
-                const hashedBody = this.hashRequestBody({ email });
-                const { data } = await api.post(`${ROUTE_PREFIX}/refresh`, { email }, {
-                    headers: {
-                        'X-API-KEY': API_KEY,
-                        'X-SIGNATURE': hashedBody
-                    }
-                });
+                const { data } = await api.post(`${ROUTE_PREFIX}/refresh`, { email });
                 this.setToken(data.token, data.expires_in);
-                console.log('Token refreshed');
             } catch (error) {
                 console.error('Error refreshing token:', error);
                 this.logout();
@@ -82,27 +77,27 @@ export const useAuthStore = defineStore('auth', {
         },
 
         async logout(router, email) {
-            this.isLoading = true;
+            this.clearToken();
+
+            if (router) {
+                router.push('/login');
+            }
+
             try {
                 const hashedBody = this.hashRequestBody({ email });
                 await api.post(`${ROUTE_PREFIX}/logout`, { email }, {
                     headers: {
-                        'X-API-KEY': API_KEY,
                         'X-SIGNATURE': hashedBody
                     }
                 });
             } catch (error) {
                 console.error('Error during logout:', error);
-            } finally {
-                this.clearToken();
-
-                if (router) {
-                    router.push('/login');
-                }
             }
         },
 
-        setToken(token, expiresIn) {
+        setToken(token, expiresIn = 3600) {
+            const now = Date.now() / 1000;
+            const expireAt = now + expiresIn - 300;
             this.token = token;
             localStorage.setItem('token', token);
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -111,23 +106,18 @@ export const useAuthStore = defineStore('auth', {
                 clearInterval(this.refreshInterval);
             }
 
-            // Set interval to refresh the token before expiration (e.g., 5 minutes before)
             this.refreshInterval = setInterval(() => {
-                this.refreshToken({ email: this.user.email });
-            }, (expiresIn - 300) * 1000); // Refresh 5 minutes before expiry
+                if (this.user && Date.now() / 1000 > expireAt) {
+                    this.refreshToken({ email: this.user.email });
+                }
+            }, 30000);
         },
 
         clearToken() {
-            this.token = null;
-            this.user = null;
-            this.isLoading = false;
+            this.token = this.user = this.isLoading = null;
             localStorage.removeItem('token');
             delete api.defaults.headers.common['Authorization'];
-
-            if (this.refreshInterval) {
-                clearInterval(this.refreshInterval);
-                this.refreshInterval = null;
-            }
+            clearInterval(this.refreshInterval);
         },
 
         initializeAuth() {
