@@ -54,4 +54,10 @@ This will start the Vue app at `http://localhost:5173` (default Vite port).
 4. **Token Refresh**: The app requests a new token every 3600 seconds.
 5. **Logout**: The user logs out, clearing the token and state. -->
 
+## Screenshots
+
+### Login Page
 ![Alt text](/public/screenshots/login.jpg?raw=true "Login Page")
+
+### Registration Page
+![Alt text](/public/screenshots/register.jpg?raw=true "Login Page")
