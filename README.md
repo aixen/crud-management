@@ -53,3 +53,5 @@ This will start the Vue app at `http://localhost:5173` (default Vite port).
 3. **API Requests**: Authenticated requests include the JWT token in the headers.
 4. **Token Refresh**: The app requests a new token every 3600 seconds.
 5. **Logout**: The user logs out, clearing the token and state. -->
+
+![Alt text](/login.jpg?raw=true "Login Page")
